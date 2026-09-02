@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Epic Config → Sprint Delivery Flow</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<style>
+  :root {
+    --border: #E2E5EA;
+    --bg: #F5F6F8;
+    --card: #FFFFFF;
+    --text: #1F2530;
+    --muted: #6B7280;
+    --accent: #2F5FA8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+  #root { height: 100%; }
+  .app-root { display: flex; flex-direction: column; height: 100%; }
+
+  .topbar {
+    display: flex; flex-direction: column; align-items: stretch;
+    gap: 10px; padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--border);
+  }
+  .brand-title { font-size: 18px; font-weight: 700; color: var(--text); }
+
+  .toolbar { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .toolbar-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .tool-group { display: flex; align-items: center; gap: 6px; background: #F8F9FB; border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; }
+  .tool-label { font-size: 11px; color: var(--muted); padding: 0 4px; }
+  button {
+    font-family: inherit; font-size: 12.5px; color: var(--text); background: #FFFFFF;
+    border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #EEF2F8; border-color: #C7D2E0; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .zoom-readout { font-size: 12px; color: var(--muted); min-width: 38px; text-align: center; }
+
+  .help-strip {
+    background: #FFF7E6; border-bottom: 1px solid #F0DDA6; color: #7A5A0A;
+    font-size: 12.5px; padding: 7px 20px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .help-strip .dismiss { background: transparent; border: none; color: #7A5A0A; font-size: 13px; cursor: pointer; padding: 2px 6px; }
+
+  .stage { flex: 1; display: flex; min-height: 0; }
+  .viewport {
+    flex: 1; position: relative; overflow: hidden; background:
+      linear-gradient(90deg, rgba(0,0,0,0.035) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(rgba(0,0,0,0.035) 1px, transparent 1px) 0 0 / 24px 24px, var(--bg);
+    cursor: grab;
+  }
+  .viewport:active { cursor: grabbing; }
+  .inner { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+
+  .edit-overlay {
+    position: absolute; z-index: 5; resize: none; font-family: Arial, sans-serif;
+    font-size: 13px; font-weight: 600; text-align: center; padding: 4px; border-radius: 8px;
+    border: 2px solid var(--accent); outline: none; background: #FFFFFF; color: var(--text);
+  }
+
+  .side-panel { width: 300px; flex-shrink: 0; background: var(--card); border-left: 1px solid var(--border); padding: 14px; overflow-y: auto; }
+  .panel-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 14px; background: #FCFCFD; }
+  .panel-card.muted { color: var(--muted); font-size: 13px; }
+  .panel-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 8px; }
+  .panel-step-text { font-size: 14.5px; font-weight: 700; margin-bottom: 8px; }
+  .panel-row { margin-bottom: 10px; }
+  .status-chip { display: inline-block; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .panel-btn {
+    display: block; width: 100%; text-align: left; margin-bottom: 6px; padding: 8px 10px;
+    background: #fff; border: 1px solid var(--border); border-radius: 7px; font-size: 13px;
+  }
+  .panel-btn:hover { background: #EEF2F8; }
+  .panel-btn.danger { color: #B23A3A; }
+  .panel-btn.danger:hover { background: #FBEAEA; border-color: #E9B9B9; }
+  .panel-meta { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12.5px; color: #3C4451; line-height: 1.6; }
+  .panel-label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  .panel-input {
+    width: 100%; padding: 7px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit;
+  }
+
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #3C4451; margin-bottom: 7px; }
+  .swatch { width: 16px; height: 16px; border: 2px solid; border-radius: 4px; flex-shrink: 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-left: 3px; margin-right: 3px; }
+
+  /* N/S/E/W connection anchors: invisible until the shape is hovered */
+  .node-group .anchor-dot { opacity: 0; transition: opacity 0.12s ease; cursor: crosshair; }
+  .node-group:hover .anchor-dot { opacity: 1; }
+  .node-group .anchor-dot:hover { fill: #1868DB; }
+
+  /* Color palette swatches (side panel) */
+  .palette-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+  .palette-swatch {
+    width: 22px; height: 22px; border-radius: 6px; border: 2px solid rgba(0,0,0,0.12); cursor: pointer;
+    padding: 0; flex-shrink: 0;
+  }
+  .palette-swatch.selected { border-color: #1868DB; box-shadow: 0 0 0 2px rgba(24,104,219,0.25); }
+  .palette-swatch.reset { background: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); }
+
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(20, 24, 32, 0.45); display: flex;
+    align-items: center; justify-content: center; z-index: 50;
+  }
+  .modal {
+    width: 380px; max-width: 92vw; background: #fff; border-radius: 12px; padding: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25); max-height: 88vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .modal-step { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+  .modal label { display: block; font-size: 12px; font-weight: 600; color: #3C4451; margin: 10px 0 4px; }
+  .modal input, .modal select, .modal textarea {
+    width: 100%; padding: 8px 9px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 13px; resize: vertical;
+  }
+  .modal-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+  .modal-actions .panel-btn { width: auto; padding: 8px 18px; background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .chip-btn { font-size: 10.5px; padding: 5px 8px; }
+  .mini-chip {
+    display: inline-block; background: #EAF1FB; color: #173561; border: 1px solid #C7D2E0;
+    border-radius: 999px; font-size: 11px; font-weight: 600; padding: 2px 9px; margin: 0 5px 5px 0;
+  }
+
+  .kpi-bar-track { width: 100%; height: 6px; background: #EDEFF3; border-radius: 999px; overflow: hidden; }
+  .kpi-bar-fill { height: 100%; border-radius: 999px; transition: width 0.2s; }
+
+  .minimap {
+    position: absolute; bottom: 14px; right: 14px; background: #fff; border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.14); cursor: pointer; z-index: 6;
+  }
+
+  .modal-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .modal-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 8px; margin-top: 4px; }
+  .raci-label { display: block; font-size: 10.5px; font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+  .raci-input { width: 100%; padding: 6px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+
+  .comment-list { max-height: 140px; overflow-y: auto; margin-top: 4px; }
+  .comment-item { border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; margin-bottom: 6px; font-size: 12.5px; background: #FAFBFC; }
+  .comment-meta { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+
+  @keyframes demoPulse { 0% { stroke-opacity: 1; } 50% { stroke-opacity: 0.25; } 100% { stroke-opacity: 1; } }
+  .demo-pulse { animation: demoPulse 1.1s ease-in-out infinite; }
+
+  @media print {
+    .topbar, .help-strip, .side-panel { display: none !important; }
+    .viewport { overflow: visible !important; position: static !important; background: #fff !important; }
+    .inner { position: static !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useRef, useCallback, useEffect } = React;
+
+const uid = (() => { let n = 1; return (p) => `${p}_${n++}`; })();
+
+// Practically-infinite canvas: content sits well inside this area on all
+// sides so the board can be extended (especially upward/leftward) without
+// ever hitting an edge.
+const CANVAS_W = 40000;
+const CANVAS_H = 40000;
+// How far the imported flow's (0,0) origin is offset inside that huge canvas,
+// so there is generous empty space above/left of the flow to add new shapes.
+const CANVAS_OFFSET_X = 8000;
+const CANVAS_OFFSET_Y = 8000;
+
+const TYPE_STYLE = {
+  process:  { fill: "#EAF1FB", stroke: "#2F5FA8", text: "#173561" },
+  decision: { fill: "#FDF3DC", stroke: "#9A6B10", text: "#5A3D06" },
+  terminal: { fill: "#E7F7EE", stroke: "#1E7A47", text: "#0E4227" },
+  note:     { fill: "#F3F1FB", stroke: "#6E58B8", text: "#352A6B" },
+  highlight:{ fill: "#2F5FA8", stroke: "#173561", text: "#FFFFFF" },
+  io:         { fill: "#FDEDF3", stroke: "#B03A6B", text: "#6B1E3F" },
+  document:   { fill: "#EAF7F5", stroke: "#1E8A79", text: "#0D4A41" },
+  predefined: { fill: "#EFEAFB", stroke: "#5B3FA8", text: "#2E1F5E" },
+  database:   { fill: "#FFF1E6", stroke: "#C15A18", text: "#7A360B" },
+  connector:  { fill: "#F0F1F3", stroke: "#4B5563", text: "#1F2530" },
+};
+
+// Preset color themes selectable from the side-panel palette. `null` color on a
+// node means "use the default TYPE_STYLE for its shape type".
+const NODE_PALETTE = [
+  { name: "Blue",   fill: "#EAF1FB", stroke: "#2F5FA8", text: "#173561" },
+  { name: "Amber",  fill: "#FDF3DC", stroke: "#9A6B10", text: "#5A3D06" },
+  { name: "Green",  fill: "#E7F7EE", stroke: "#1E7A47", text: "#0E4227" },
+  { name: "Purple", fill: "#F3F1FB", stroke: "#6E58B8", text: "#352A6B" },
+  { name: "Pink",   fill: "#FDEDF3", stroke: "#B03A6B", text: "#6B1E3F" },
+  { name: "Teal",   fill: "#EAF7F5", stroke: "#1E8A79", text: "#0D4A41" },
+  { name: "Orange", fill: "#FFF1E6", stroke: "#C15A18", text: "#7A360B" },
+  { name: "Red",    fill: "#FBEAEA", stroke: "#B23A3A", text: "#5A1414" },
+  { name: "Gray",   fill: "#F0F1F3", stroke: "#4B5563", text: "#1F2530" },
+  { name: "Navy",   fill: "#2F5FA8", stroke: "#173561", text: "#FFFFFF" },
+];
+
+const STATUS_COLOR = {
+  "Not started": "#9AA1AC",
+  "In Progress": "#2F5FA8",
+  "Blocked": "#C23B3B",
+  "In Review": "#B8850F",
+  "Done": "#1E7A47",
+};
+
+function defaultNode(over) {
+  return {
+    id: uid("n"),
+    type: "process",
+    x: 100, y: 100, w: 180, h: 60,
+    text: "New step",
+    person: "", role: "", status: "Not started", notes: "",
+    storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "",
+    raci: { r: "", a: "", c: "", i: "" },
+    comments: [],
+    color: null, // null = use default TYPE_STYLE for this node's type; otherwise { fill, stroke, text }
+    ...over,
+  };
+}
+
+const PERSONAS = ["Architect", "PO", "BA", "Scrum Master", "Technical Team", "Functional Team", "SIT", "UAT", "PMT"];
+
+const initialNodes = [
+  defaultNode({ id: "allDetail", type: "decision", x: 9056, y: 8460, w: 200, h: 120, text: "All detail known?", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "brainstorm", type: "process", x: 8448, y: 8451, w: 220, h: 92, text: "Brainstorm PO/BA/Architect (Todo)", person: "", role: "PO / BA / Architect", status: "Not started", notes: "", storyId: "CFG-101", sprint: "Backlog", storyPoints: "3", acceptanceCriteria: "Stakeholders agree on the required config parameters.", dependencies: "None", raci: { r: "BA", a: "PO", c: "Architect", i: "Scrum Master" }, comments: [], color: null }),
+  defaultNode({ id: "crNeeded", type: "decision", x: 9916, y: 8678, w: 180, h: 120, text: "CR Needed?", person: "", role: "", status: "Not started", notes: "Ref: GTS / GP / INT / S-HD", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "newScope", type: "process", x: 10606, y: 8709, w: 180, h: 62, text: "New Scope", person: "", role: "", status: "Not started", notes: "", storyId: "CFG-105", sprint: "Sprint 24.1", storyPoints: "2", acceptanceCriteria: "New scope documented and estimated.", dependencies: "CR Needed = Yes", raci: { r: "BA", a: "PO", c: "Architect", i: "PMT" }, comments: [], color: null }),
+  defaultNode({ id: "pmtApproval", type: "process", x: 10594, y: 8973, w: 200, h: 62, text: "PMT Approval", person: "", role: "PMT", status: "Blocked", notes: "", storyId: "CFG-107", sprint: "Sprint 24.1", storyPoints: "1", acceptanceCriteria: "PMT sign-off received.", dependencies: "CR raised", raci: { r: "PMT", a: "PMT", c: "Lead", i: "PO" }, comments: [], color: null }),
+  defaultNode({ id: "prodBacklog", type: "highlight", x: 9044, y: 9104, w: 220, h: 84, text: "Product Backlog", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "sprintPlanning", type: "process", x: 9045, y: 9251, w: 220, h: 72, text: "Sprint Planning", person: "", role: "Scrum Master + Track Lead + Team", status: "Not started", notes: "", storyId: "CFG-108", sprint: "Sprint 24.2", storyPoints: "2", acceptanceCriteria: "Backlog items pulled into sprint with estimates.", dependencies: "Product Backlog groomed", raci: { r: "SM", a: "Lead", c: "Team", i: "PO" }, comments: [], color: null }),
+  defaultNode({ id: "trackA", type: "terminal", x: 8518, y: 9405, w: 220, h: 66, text: "1. Configuration Sub-task", person: "", role: "Functional Team", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "trackB", type: "terminal", x: 9049, y: 9405, w: 210, h: 66, text: "2. Unit Test Sub Task", person: "", role: "Functional Team", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "trackC", type: "terminal", x: 9651, y: 9403, w: 230, h: 66, text: "3. Documentation Sub Task", person: "", role: "Functional Team", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "inProgA", type: "process", x: 8541, y: 9548, w: 170, h: 56, text: "In Progress", person: "", role: "Technical Team, Functional Team", status: "In Progress", notes: "", storyId: "CFG-110", sprint: "Sprint 24.2", storyPoints: "5", acceptanceCriteria: "Configuration sub-task implemented per spec.", dependencies: "Sprint started", raci: { r: "Technical Team", a: "Lead", c: "Architect", i: "Scrum Master" }, comments: [], color: null }),
+  defaultNode({ id: "blockedA", type: "decision", x: 8548, y: 9688, w: 150, h: 100, text: "Blocked?", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "inReviewA", type: "process", x: 8535, y: 9867, w: 170, h: 56, text: "In Review", person: "", role: "Track Lead", status: "In Review", notes: "", storyId: "CFG-111", sprint: "Sprint 24.2", storyPoints: "5", acceptanceCriteria: "Config sub-task passes SIT checklist.", dependencies: "In Progress complete", raci: { r: "SIT", a: "Lead", c: "Technical Team", i: "PO" }, comments: [], color: null }),
+  defaultNode({ id: "doneA", type: "terminal", x: 8549, y: 10051, w: 140, h: 46, text: "Done", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "inProgB", type: "process", x: 9072, y: 9544, w: 170, h: 56, text: "In Progress", person: "", role: "Technical Team, Functional Team", status: "In Progress", notes: "", storyId: "CFG-112", sprint: "Sprint 24.2", storyPoints: "3", acceptanceCriteria: "Unit tests written and passing.", dependencies: "Sprint started", raci: { r: "Technical Team", a: "Lead", c: "Architect", i: "Scrum Master" }, comments: [], color: null }),
+  defaultNode({ id: "blockedB", type: "decision", x: 9077, y: 9685, w: 150, h: 100, text: "Blocked?", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "inReviewB", type: "process", x: 9068, y: 9864, w: 170, h: 56, text: "In Review", person: "", role: "Track Lead", status: "Done", notes: "", storyId: "CFG-113", sprint: "Sprint 24.2", storyPoints: "3", acceptanceCriteria: "Unit test evidence attached and reviewed.", dependencies: "In Progress complete", raci: { r: "UAT", a: "Lead", c: "Technical Team", i: "PO" }, comments: [], color: null }),
+  defaultNode({ id: "doneB", type: "terminal", x: 9083, y: 10047, w: 140, h: 46, text: "Done", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "inProgC", type: "process", x: 9684, y: 9542, w: 170, h: 56, text: "In Progress", person: "", role: "Technical Team, Functional Team", status: "Blocked", notes: "", storyId: "CFG-114", sprint: "Sprint 24.2", storyPoints: "2", acceptanceCriteria: "Documentation drafted.", dependencies: "Sprint started", raci: { r: "Technical Team", a: "Lead", c: "BA", i: "Scrum Master" }, comments: [], color: null }),
+  defaultNode({ id: "blockedC", type: "decision", x: 9692, y: 9691, w: 150, h: 100, text: "Blocked?", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "inReviewC", type: "process", x: 9680, y: 9873, w: 170, h: 56, text: "In Review", person: "", role: "Track Lead", status: "Not started", notes: "", storyId: "CFG-115", sprint: "Sprint 24.2", storyPoints: "2", acceptanceCriteria: "Documentation reviewed and approved.", dependencies: "In Progress complete", raci: { r: "PO", a: "Lead", c: "Technical Team", i: "PMT" }, comments: [], color: null }),
+  defaultNode({ id: "doneC", type: "terminal", x: 9694, y: 10054, w: 140, h: 46, text: "Done", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_69", type: "process", x: 10212, y: 8047, w: 180, h: 64, text: "EPIC ", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_75", type: "decision", x: 9068, y: 8679, w: 170, h: 110, text: "Is it Late Requirement", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_85", type: "decision", x: 9070, y: 8888, w: 170, h: 110, text: "Is it Partial Requirement ?", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_90", type: "process", x: 9384, y: 8909, w: 180, h: 64, text: "Extended Capture Functional Requirement task ", person: "", role: "Scrum Master, Track Lead", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_96", type: "process", x: 9920, y: 8986, w: 180, h: 64, text: "New - User Story Creation\n", person: "", role: "Scrum Master, Track Lead", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_99", type: "process", x: 10602, y: 9115, w: 180, h: 64, text: "New - User Story Creation", person: "", role: "Scrum Master, Track Lead", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_102", type: "process", x: 10605, y: 8849, w: 180, h: 64, text: "CR Raised in FORCE Space", person: "", role: "Track Leads, Scrum Master", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_105", type: "note", x: 10036, y: 8900, w: 190, h: 60, text: "Prefix with EP, GTS, Internal Supply, etc", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_110", type: "process", x: 9058, y: 8200, w: 180, h: 64, text: "CONFIGURATON Epic", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_114", type: "process", x: 13081, y: 8157, w: 180, h: 64, text: "FAUICEPS Epic", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_116", type: "note", x: 8936, y: 9010, w: 190, h: 60, text: "User Story Approved", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_118", type: "note", x: 8294, y: 9706, w: 190, h: 60, text: "Blocker / Dependencies/ Person unavailable", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_121", type: "note", x: 8833, y: 9707, w: 190, h: 60, text: "Blocker / Dependencies/ Person unavailable", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_122", type: "note", x: 9452, y: 9713, w: 190, h: 60, text: "Blocker / Dependencies/ Person unavailable", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "n_127", type: "note", x: 10835, y: 8977, w: 190, h: 60, text: "Approval decision in CCB meeting", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_hdr", type: "note", x: 11140, y: 8016, w: 280, h: 46, text: "FDRCEP Epic \u2014 Reference Flow", person: "", role: "", status: "Not started", notes: "Reference flow transcribed from the whiteboard screenshot.", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_l3", type: "terminal", x: 11201, y: 8092, w: 220, h: 54, text: "Leading L3 Available", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_reqElab", type: "process", x: 11170, y: 8176, w: 220, h: 58, text: "Requirement Elaboration", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_fddPrep", type: "process", x: 11170, y: 8264, w: 220, h: 58, text: "FDD Preparation", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_fddReview", type: "process", x: 11170, y: 8352, w: 220, h: 58, text: "FDD Review", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_reviewFindings", type: "decision", x: 11190, y: 8440, w: 180, h: 110, text: "Review Findings?", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_gapClosure", type: "process", x: 10880, y: 8458, w: 190, h: 60, text: "Gap Closure", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_preDab", type: "process", x: 11170, y: 8590, w: 220, h: 58, text: "Pre-DAB Approval", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_buildReadiness", type: "process", x: 11010, y: 8678, w: 210, h: 70, text: "Build Readiness Activities", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_fdrcepStory", type: "process", x: 11270, y: 8678, w: 210, h: 70, text: "FDRCEP Story Approval", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_transportPrep", type: "process", x: 11010, y: 8778, w: 210, h: 58, text: "Transport Preparation", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_backlogRefine", type: "process", x: 11270, y: 8778, w: 210, h: 58, text: "Backlog Refinement", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+  defaultNode({ id: "ref_sprintPlanning", type: "process", x: 11140, y: 8866, w: 220, h: 58, text: "Sprint Planning", person: "", role: "", status: "Not started", notes: "", storyId: "", sprint: "", storyPoints: "", acceptanceCriteria: "", dependencies: "", raci: { r: "", a: "", c: "", i: "" }, comments: [], color: null }),
+];
+
+function edge(from, to, waypoints, label) {
+  return { id: uid("e"), from, to, waypoints, label: label || "" };
+}
+
+const initialEdges = [
+  edge("allDetail", "brainstorm", null, "No"),
+  edge("crNeeded", "newScope", null, "Yes"),
+  edge("prodBacklog", "sprintPlanning", null, ""),
+  edge("trackA", "inProgA", null, ""),
+  edge("trackB", "inProgB", null, ""),
+  edge("trackC", "inProgC", null, ""),
+  edge("inProgA", "blockedA", null, ""),
+  edge("inProgB", "blockedB", null, ""),
+  edge("inProgC", "blockedC", null, ""),
+  edge("blockedA", "inReviewA", null, "No"),
+  edge("blockedB", "inReviewB", null, "No"),
+  edge("blockedC", "inReviewC", null, "No"),
+  edge("blockedB", "inProgB", null, "Yes"),
+  edge("blockedC", "inProgC", null, "Yes"),
+  edge("inReviewA", "doneA", null, ""),
+  edge("inReviewB", "doneB", null, ""),
+  edge("inReviewC", "doneC", null, ""),
+  edge("allDetail", "n_75", null, "Yes"),
+  edge("n_75", "crNeeded", null, "Yes"),
+  edge("n_75", "n_85", null, "No"),
+  edge("n_85", "n_90", null, "Yes"),
+  edge("n_90", "prodBacklog", null, "Moved to Backlog"),
+  edge("n_85", "prodBacklog", null, "No"),
+  edge("crNeeded", "n_96", null, "No"),
+  edge("n_96", "prodBacklog", null, "Moved to Backlog"),
+  edge("pmtApproval", "n_99", null, ""),
+  edge("n_99", "prodBacklog", null, "Moved to Backlog"),
+  edge("newScope", "n_102", null, ""),
+  edge("sprintPlanning", "trackA", null, ""),
+  edge("sprintPlanning", "trackB", null, ""),
+  edge("sprintPlanning", "trackC", null, ""),
+  edge("trackB", "sprintPlanning", null, ""),
+  edge("n_69", "n_110", null, ""),
+  edge("n_110", "allDetail", null, ""),
+  edge("n_69", "n_114", null, ""),
+  edge("blockedA", "n_118", null, "Yes"),
+  edge("n_118", "inProgA", null, "Moved to In Progress"),
+  edge("blockedB", "n_121", null, "Yes"),
+  edge("n_121", "inProgB", null, "Moved to In Progress"),
+  edge("blockedC", "n_122", null, "Yes"),
+  edge("n_122", "inProgC", null, "Moved to In Progress"),
+  edge("trackA", "trackB", null, ""),
+  edge("trackB", "trackC", null, ""),
+  edge("ref_hdr", "ref_l3", null, ""),
+  edge("ref_l3", "ref_reqElab", null, ""),
+  edge("ref_reqElab", "ref_fddPrep", null, ""),
+  edge("ref_fddPrep", "ref_fddReview", null, ""),
+  edge("ref_fddReview", "ref_reviewFindings", null, ""),
+  edge("ref_reviewFindings", "ref_gapClosure", null, "Yes"),
+  edge("ref_gapClosure", "ref_fddReview", null, ""),
+  edge("ref_reviewFindings", "ref_preDab", null, "No"),
+  edge("ref_preDab", "ref_buildReadiness", null, ""),
+  edge("ref_preDab", "ref_fdrcepStory", null, ""),
+  edge("ref_buildReadiness", "ref_transportPrep", null, ""),
+  edge("ref_fdrcepStory", "ref_backlogRefine", null, ""),
+  edge("ref_transportPrep", "ref_sprintPlanning", null, ""),
+  edge("ref_backlogRefine", "ref_sprintPlanning", null, ""),
+  edge("n_110", "brainstorm", null, ""),
+];
+
+// Narrative order used by Demo Mode to walk the whole epic lifecycle — derived
+// automatically from the loaded flow (reading order, main flow only, reference
+// flow on the right excluded) so it always stays in sync with the data.
+const DEMO_SEQUENCE = initialNodes
+  .filter((n) => !n.id.startsWith("ref_") && n.type !== "note")
+  .sort((a, b) => (a.y - b.y) || (a.x - b.x))
+  .map((n) => n.id);
+
+// Starting pan/zoom, computed so the imported flow (which now sits well
+// inside the huge canvas) opens centered in the viewport with room to spare
+// above, below, and to either side.
+const INITIAL_VIEW = (() => {
+  const zoom = 0.5;
+  const minX = Math.min(...initialNodes.map((n) => n.x));
+  const minY = Math.min(...initialNodes.map((n) => n.y));
+  return { zoom, pan: { x: 60 - minX * zoom, y: 40 - minY * zoom } };
+})();
+
+// ---------------- helpers ----------------
+function wrapLines(text, w, fontSize) {
+  const maxChars = Math.max(6, Math.floor((w - 20) / (fontSize * 0.6)));
+  const words = String(text || "").split(/\s+/);
+  const lines = [];
+  let cur = "";
+  words.forEach((word) => {
+    const test = cur ? cur + " " + word : word;
+    if (test.length > maxChars && cur) {
+      lines.push(cur);
+      cur = word;
+    } else {
+      cur = test;
+    }
+  });
+  if (cur) lines.push(cur);
+  return lines.slice(0, 5);
+}
+
+function pathFromPoints(pts) {
+  return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ");
+}
+
+function midOfPoints(pts) {
+  const seg = Math.floor(pts.length / 2);
+  const a = pts[Math.max(0, seg - 1)];
+  const b = pts[seg] || a;
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+}
+
+// ---------------- auto-routing (keeps connectors attached when tiles move) ----------------
+function anchorPoint(n, side) {
+  const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+  if (side === "right") return [n.x + n.w, cy];
+  if (side === "left") return [n.x, cy];
+  if (side === "top") return [cx, n.y];
+  return [cx, n.y + n.h];
+}
+
+function autoRoute(from, to) {
+  const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2;
+  const tcx = to.x + to.w / 2, tcy = to.y + to.h / 2;
+  const dx = tcx - fcx, dy = tcy - fcy;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    const fromSide = dx >= 0 ? "right" : "left";
+    const toSide = dx >= 0 ? "left" : "right";
+    const p1 = anchorPoint(from, fromSide);
+    const p2 = anchorPoint(to, toSide);
+    const midX = (p1[0] + p2[0]) / 2;
+    return [p1, [midX, p1[1]], [midX, p2[1]], p2];
+  }
+  const fromSide = dy >= 0 ? "bottom" : "top";
+  const toSide = dy >= 0 ? "top" : "bottom";
+  const p1 = anchorPoint(from, fromSide);
+  const p2 = anchorPoint(to, toSide);
+  const midY = (p1[1] + p2[1]) / 2;
+  return [p1, [p1[0], midY], [p2[0], midY], p2];
+}
+
+// ---------------- shape renderer ----------------
+function ShapeBody({ node }) {
+  const base = TYPE_STYLE[node.type] || TYPE_STYLE.process;
+  const s = node.color || base; // per-node color override wins over the type default
+  const { x, y, w, h } = node;
+  if (node.type === "decision") {
+    const pts = `${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}`;
+    return <polygon points={pts} fill={s.fill} stroke={s.stroke} strokeWidth="2" />;
+  }
+  if (node.type === "terminal") {
+    return <rect x={x} y={y} width={w} height={h} rx={h / 2} ry={h / 2} fill={s.fill} stroke={s.stroke} strokeWidth="2" />;
+  }
+  if (node.type === "note") {
+    return <rect x={x} y={y} width={w} height={h} rx={6} ry={6} fill={s.fill} stroke={s.stroke} strokeWidth="1.5" strokeDasharray="5,4" />;
+  }
+  if (node.type === "highlight") {
+    return <rect x={x} y={y} width={w} height={h} rx={10} ry={10} fill={s.fill} stroke={s.stroke} strokeWidth="2.5" />;
+  }
+  if (node.type === "io") {
+    // Parallelogram — data / input-output
+    const skew = Math.min(24, w * 0.18);
+    const pts = `${x + skew},${y} ${x + w},${y} ${x + w - skew},${y + h} ${x},${y + h}`;
+    return <polygon points={pts} fill={s.fill} stroke={s.stroke} strokeWidth="2" />;
+  }
+  if (node.type === "document") {
+    // Rectangle with a wavy bottom edge
+    const waveH = 10;
+    const d = `M${x},${y} H${x + w} V${y + h - waveH}
+      C${x + w * 0.75},${y + h + waveH} ${x + w * 0.25},${y + h - waveH * 2} ${x},${y + h}
+      Z`;
+    return <path d={d} fill={s.fill} stroke={s.stroke} strokeWidth="2" strokeLinejoin="round" />;
+  }
+  if (node.type === "predefined") {
+    // Predefined process / subroutine — rectangle with inset vertical bars
+    const inset = Math.min(14, w * 0.1);
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} rx={4} ry={4} fill={s.fill} stroke={s.stroke} strokeWidth="2" />
+        <line x1={x + inset} y1={y} x2={x + inset} y2={y + h} stroke={s.stroke} strokeWidth="2" />
+        <line x1={x + w - inset} y1={y} x2={x + w - inset} y2={y + h} stroke={s.stroke} strokeWidth="2" />
+      </g>
+    );
+  }
+  if (node.type === "database") {
+    // Cylinder — data store
+    const ry = Math.min(14, h * 0.18);
+    const d = `M${x},${y + ry}
+      A${w / 2},${ry} 0 0 0 ${x + w},${y + ry}
+      V${y + h - ry}
+      A${w / 2},${ry} 0 0 1 ${x},${y + h - ry}
+      Z`;
+    return (
+      <g>
+        <path d={d} fill={s.fill} stroke={s.stroke} strokeWidth="2" />
+        <ellipse cx={x + w / 2} cy={y + ry} rx={w / 2} ry={ry} fill={s.fill} stroke={s.stroke} strokeWidth="2" />
+      </g>
+    );
+  }
+  if (node.type === "connector") {
+    // Small circle — on-page connector
+    const r = Math.min(w, h) / 2;
+    return <circle cx={x + w / 2} cy={y + h / 2} r={r} fill={s.fill} stroke={s.stroke} strokeWidth="2" />;
+  }
+  return <rect x={x} y={y} width={w} height={h} rx={8} ry={8} fill={s.fill} stroke={s.stroke} strokeWidth="2" />;
+}
+
+function NodeView({ node, selected, connectSource, dimmed, spotlight, demoActive, dropTarget, onMouseDown, onClick, onDoubleClick, onAnchorMouseDown }) {
+  const base = TYPE_STYLE[node.type] || TYPE_STYLE.process;
+  const s = node.color || base;
+  const lines = wrapLines(node.text, node.w, 13);
+  const lineH = 15;
+  const startY = node.y + node.h / 2 - ((lines.length - 1) * lineH) / 2;
+  const hasMeta = node.person || node.role;
+  return (
+    <g
+      className="node-group"
+      onMouseDown={onMouseDown}
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      style={{ cursor: "grab", opacity: dimmed ? 0.22 : 1, transition: "opacity 0.15s" }}
+    >
+      <ShapeBody node={node} />
+      {["top", "right", "bottom", "left"].map((side) => {
+        const [ax, ay] = anchorPoint(node, side);
+        return (
+          <circle
+            key={side}
+            className="anchor-dot"
+            cx={ax} cy={ay} r="4.5"
+            fill="#FFFFFF" stroke="#1868DB" strokeWidth="1.6"
+            onMouseDown={(e) => { e.stopPropagation(); onAnchorMouseDown && onAnchorMouseDown(node.id, side, e); }}
+          />
+        );
+      })}
+      {dropTarget && (
+        <rect
+          x={node.x - 6} y={node.y - 6} width={node.w + 12} height={node.h + 12}
+          rx={11} fill="none" stroke="#1E9E5A" strokeWidth="3" strokeDasharray="3,4"
+        />
+      )}
+      {selected && (
+        <rect
+          x={node.x - 5} y={node.y - 5} width={node.w + 10} height={node.h + 10}
+          rx={10} fill="none" stroke="#1868DB" strokeWidth="2" strokeDasharray="4,3"
+        />
+      )}
+      {connectSource === node.id && (
+        <rect
+          x={node.x - 5} y={node.y - 5} width={node.w + 10} height={node.h + 10}
+          rx={10} fill="none" stroke="#B8850F" strokeWidth="3"
+        />
+      )}
+      {spotlight && (
+        <rect
+          className={demoActive ? "demo-pulse" : ""}
+          x={node.x - 7} y={node.y - 7} width={node.w + 14} height={node.h + 14}
+          rx={12} fill="none" stroke={demoActive ? "#E0862F" : "#1E9E5A"} strokeWidth="3"
+        />
+      )}
+      {lines.map((ln, i) => (
+        <text
+          key={i}
+          x={node.x + node.w / 2}
+          y={startY + i * lineH}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize="13"
+          fontWeight={node.type === "highlight" || node.type === "terminal" ? 700 : 600}
+          fill={s.text}
+          style={{ pointerEvents: "none", fontFamily: "Arial, sans-serif" }}
+        >
+          {ln}
+        </text>
+      ))}
+      {node.status && node.status !== "Not started" && (
+        <circle cx={node.x + node.w - 10} cy={node.y + 10} r={5} fill={STATUS_COLOR[node.status] || "#999"} stroke="#fff" strokeWidth="1" />
+      )}
+      {hasMeta && (
+        <text
+          x={node.x + node.w / 2}
+          y={node.y + node.h + 13}
+          textAnchor="middle"
+          fontSize="10.5"
+          fill="#5B6472"
+          style={{ pointerEvents: "none", fontFamily: "Arial, sans-serif" }}
+        >
+          {"👤 " + (node.person ? node.person : node.role)}
+        </text>
+      )}
+    </g>
+  );
+}
+
+// ---------------- mini-map ----------------
+function MiniMap({ nodes, pan, zoom, viewportEl, onNavigate }) {
+  const mmW = 220, mmH = 150;
+  const scale = Math.min(mmW / CANVAS_W, mmH / CANVAS_H);
+  const rect = viewportEl ? viewportEl.getBoundingClientRect() : { width: 12000, height: 12000 };
+  const viewX = -pan.x / zoom, viewY = -pan.y / zoom;
+  const viewW = rect.width / zoom, viewH = rect.height / zoom;
+
+  return (
+    <div
+      className="minimap"
+      onClick={(e) => {
+        const b = e.currentTarget.getBoundingClientRect();
+        const clickX = (e.clientX - b.left) / scale;
+        const clickY = (e.clientY - b.top) / scale;
+        onNavigate(clickX, clickY);
+      }}
+      title="Click to jump to that area"
+    >
+      <svg width={mmW} height={mmH} viewBox={`0 0 ${mmW} ${mmH}`}>
+        <rect x="0" y="0" width={mmW} height={mmH} fill="#F5F6F8" stroke="#E2E5EA" />
+        {nodes.map((n) => {
+          const s = TYPE_STYLE[n.type] || TYPE_STYLE.process;
+          return (
+            <rect
+              key={n.id}
+              x={n.x * scale} y={n.y * scale}
+              width={Math.max(2, n.w * scale)} height={Math.max(2, n.h * scale)}
+              fill={s.stroke} opacity="0.75"
+            />
+          );
+        })}
+        <rect
+          x={viewX * scale} y={viewY * scale}
+          width={Math.max(4, viewW * scale)} height={Math.max(4, viewH * scale)}
+          fill="rgba(24,104,219,0.15)" stroke="#1868DB" strokeWidth="1.5"
+        />
+      </svg>
+    </div>
+  );
+}
+
+// ---------------- main app ----------------
+function App() {
+  const [nodes, setNodes] = useState(initialNodes);
+  const [edges, setEdges] = useState(initialEdges);
+  const [selectedId, setSelectedId] = useState(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [draftText, setDraftText] = useState("");
+  const [modalNodeId, setModalNodeId] = useState(null);
+  const [connectMode, setConnectMode] = useState(false);
+  const [connectSource, setConnectSource] = useState(null);
+  const [pan, setPan] = useState(INITIAL_VIEW.pan);
+  const [zoom, setZoom] = useState(INITIAL_VIEW.zoom);
+  const [showLegend, setShowLegend] = useState(true);
+  const [showHelp, setShowHelp] = useState(true);
+  const [activeRoles, setActiveRoles] = useState([]);
+  const [showKPI, setShowKPI] = useState(true);
+  const [showMiniMap, setShowMiniMap] = useState(true);
+  const [demoPlaying, setDemoPlaying] = useState(false);
+  const [demoIndex, setDemoIndex] = useState(-1);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [connectDrag, setConnectDrag] = useState(null); // { fromId, fromSide, x, y, hoverTargetId } while dragging a new connector from an anchor dot
+
+  const viewportRef = useRef(null);
+  const dragRef = useRef(null); // {id, offX, offY} or {panning:true, startX,startY,startPan} or {connecting:true, fromId, fromSide}
+  const fileInputRef = useRef(null);
+
+  const getInnerPoint = useCallback((clientX, clientY) => {
+    const rect = viewportRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - pan.x) / zoom,
+      y: (clientY - rect.top - pan.y) / zoom,
+    };
+  }, [pan, zoom]);
+
+  const onAnchorMouseDown = (nodeId, side, e) => {
+    e.stopPropagation();
+    const p = getInnerPoint(e.clientX, e.clientY);
+    dragRef.current = { connecting: true, fromId: nodeId, fromSide: side };
+    setConnectDrag({ fromId: nodeId, fromSide: side, x: p.x, y: p.y, hoverTargetId: null });
+    setSelectedId(null);
+    setSelectedEdgeId(null);
+  };
+
+  const onNodeMouseDown = (e, node) => {
+    e.stopPropagation();
+    if (connectMode) return;
+    const p = getInnerPoint(e.clientX, e.clientY);
+    dragRef.current = { id: node.id, offX: p.x - node.x, offY: p.y - node.y };
+    setSelectedId(node.id);
+    setSelectedEdgeId(null);
+    // Un-pin any connectors touching this tile so they auto-redraw and stay attached as it moves.
+    setEdges((eds) => eds.map((ed) => (ed.from === node.id || ed.to === node.id ? { ...ed, waypoints: null } : ed)));
+  };
+
+  const onNodeClick = (e, node) => {
+    e.stopPropagation();
+    if (connectMode) {
+      if (!connectSource) {
+        setConnectSource(node.id);
+      } else if (connectSource !== node.id) {
+        setEdges((eds) => eds.concat([edge(connectSource, node.id, null, "")]));
+        setConnectSource(null);
+      }
+    }
+  };
+
+  const onNodeDouble = (e, node) => {
+    e.stopPropagation();
+    setEditingId(node.id);
+    setDraftText(node.text);
+  };
+
+  const onBackgroundMouseDown = (e) => {
+    dragRef.current = { panning: true, startX: e.clientX, startY: e.clientY, startPan: pan };
+    setSelectedId(null);
+    setSelectedEdgeId(null);
+  };
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const d = dragRef.current;
+      if (!d) return;
+      if (d.panning) {
+        setPan({ x: d.startPan.x + (e.clientX - d.startX), y: d.startPan.y + (e.clientY - d.startY) });
+      } else if (d.connecting) {
+        const p = getInnerPoint(e.clientX, e.clientY);
+        const hover = nodes.find((n) => n.id !== d.fromId && p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h);
+        setConnectDrag((cd) => (cd ? { ...cd, x: p.x, y: p.y, hoverTargetId: hover ? hover.id : null } : cd));
+      } else if (d.id) {
+        const p = getInnerPoint(e.clientX, e.clientY);
+        setNodes((nds) => nds.map((n) => (n.id === d.id ? { ...n, x: Math.round(p.x - d.offX), y: Math.round(p.y - d.offY) } : n)));
+      }
+    };
+    const onUp = (e) => {
+      const d = dragRef.current;
+      if (d && d.connecting) {
+        const p = getInnerPoint(e.clientX, e.clientY);
+        const target = nodes.find((n) => n.id !== d.fromId && p.x >= n.x && p.x <= n.x + n.w && p.y >= n.y && p.y <= n.y + n.h);
+        if (target) {
+          // Snap to whichever anchor pair best fits the drop — waypoints:null lets
+          // autoRoute() pick the nearest N/S/E/W anchors on both shapes automatically.
+          setEdges((eds) => eds.concat([edge(d.fromId, target.id, null, "")]));
+          setSelectedEdgeId(null);
+          setSelectedId(null);
+        }
+        setConnectDrag(null);
+      }
+      dragRef.current = null;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [getInnerPoint, nodes]);
+
+  const commitEdit = () => {
+    if (editingId) {
+      setNodes((nds) => nds.map((n) => (n.id === editingId ? { ...n, text: draftText } : n)));
+    }
+    setEditingId(null);
+  };
+
+  const addShape = (type) => {
+    const rect = viewportRef.current.getBoundingClientRect();
+    const cx = (rect.width / 2 - pan.x) / zoom;
+    const cy = (rect.height / 2 - pan.y) / zoom;
+    const dims =
+      type === "decision" ? { w: 170, h: 110 } :
+      type === "terminal" ? { w: 170, h: 54 } :
+      type === "note" ? { w: 190, h: 60 } :
+      type === "io" ? { w: 190, h: 70 } :
+      type === "document" ? { w: 190, h: 74 } :
+      type === "predefined" ? { w: 190, h: 70 } :
+      type === "database" ? { w: 150, h: 90 } :
+      type === "connector" ? { w: 60, h: 60 } :
+      { w: 180, h: 64 };
+    const n = defaultNode({ type, x: Math.round(cx - dims.w / 2), y: Math.round(cy - dims.h / 2), w: dims.w, h: dims.h, text: "New step" });
+    setNodes((nds) => nds.concat([n]));
+    setSelectedId(n.id);
+    setEditingId(n.id);
+    setDraftText(n.text);
+  };
+
+  const deleteSelected = () => {
+    if (selectedId) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedId));
+      setEdges((eds) => eds.filter((ed) => ed.from !== selectedId && ed.to !== selectedId));
+      setSelectedId(null);
+    }
+    if (selectedEdgeId) {
+      setEdges((eds) => eds.filter((ed) => ed.id !== selectedEdgeId));
+      setSelectedEdgeId(null);
+    }
+  };
+
+  const duplicateSelected = () => {
+    if (!selectedId) return;
+    const orig = nodes.find((n) => n.id === selectedId);
+    if (!orig) return;
+    const copy = { ...orig, id: uid("n"), x: orig.x + 32, y: orig.y + 32, comments: (orig.comments || []).slice(), raci: { ...(orig.raci || {}) } };
+    setNodes((nds) => nds.concat([copy]));
+    setSelectedId(copy.id);
+    setSelectedEdgeId(null);
+  };
+
+  const toggleRole = (r) => {
+    setActiveRoles((arr) => (arr.includes(r) ? arr.filter((x) => x !== r) : arr.concat([r])));
+  };
+
+  const roleActive = activeRoles.length > 0;
+
+  const isRoleMatch = (n) =>
+    !roleActive || activeRoles.some((r) => (n.role || "").toLowerCase().includes(r.toLowerCase()));
+
+  const isDimmed = (n) => {
+    if (demoPlaying || demoIndex >= 0) return DEMO_SEQUENCE[demoIndex] !== n.id;
+    if (!roleActive) return false;
+    return !isRoleMatch(n);
+  };
+
+  const isSpotlight = (n) => {
+    if (demoPlaying || demoIndex >= 0) return DEMO_SEQUENCE[demoIndex] === n.id;
+    if (!roleActive) return false;
+    return isRoleMatch(n);
+  };
+
+  // ---------------- Demo Mode ----------------
+  const startDemo = () => {
+    setSelectedId(null); setSelectedEdgeId(null); setConnectMode(false);
+    setDemoIndex(0); setDemoPlaying(true);
+  };
+  const stopDemo = () => { setDemoPlaying(false); setDemoIndex(-1); resetView(); };
+
+  useEffect(() => {
+    if (!demoPlaying) return;
+    const t = setTimeout(() => {
+      setDemoIndex((i) => {
+        if (i >= DEMO_SEQUENCE.length - 1) { setDemoPlaying(false); return i; }
+        return i + 1;
+      });
+    }, 1700);
+    return () => clearTimeout(t);
+  }, [demoPlaying, demoIndex]);
+
+  useEffect(() => {
+    if (demoIndex < 0 || !viewportRef.current) return;
+    const n = nodes.find((nd) => nd.id === DEMO_SEQUENCE[demoIndex]);
+    if (!n) return;
+    const rect = viewportRef.current.getBoundingClientRect();
+    const targetZoom = 0.85;
+    const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
+    setZoom(targetZoom);
+    setPan({ x: rect.width / 2 - cx * targetZoom, y: rect.height / 2 - cy * targetZoom });
+  }, [demoIndex]);
+
+  const onMiniMapNavigate = (canvasX, canvasY) => {
+    if (!viewportRef.current) return;
+    const rect = viewportRef.current.getBoundingClientRect();
+    setPan({ x: rect.width / 2 - canvasX * zoom, y: rect.height / 2 - canvasY * zoom });
+  };
+
+  const addComment = () => {
+    if (!commentDraft.trim() || !modalNodeId) return;
+    setNodes((nds) => nds.map((n) => (n.id === modalNodeId
+      ? { ...n, comments: (n.comments || []).concat([{ author: "You", text: commentDraft.trim(), time: "Just now" }]) }
+      : n)));
+    setCommentDraft("");
+  };
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.key === "Delete" || e.key === "Backspace") && !editingId && !modalNodeId && document.activeElement.tagName !== "TEXTAREA" && document.activeElement.tagName !== "INPUT") {
+        deleteSelected();
+      }
+      if (e.key === "Escape") {
+        setConnectMode(false);
+        setConnectSource(null);
+        setEditingId(null);
+        setModalNodeId(null);
+        if (connectDrag) { dragRef.current = null; setConnectDrag(null); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  const exportJSON = () => {
+    const blob = new Blob([JSON.stringify({ nodes, edges }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "epic-config-flow.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importJSON = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (Array.isArray(data.nodes) && Array.isArray(data.edges)) {
+          setNodes(data.nodes);
+          setEdges(data.edges);
+          setSelectedId(null);
+          setSelectedEdgeId(null);
+        } else {
+          alert("This file doesn't look like a flowchart export.");
+        }
+      } catch (err) {
+        alert("Couldn't read that file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const exportPNG = () => {
+    setEditingId(null);
+    setSelectedId(null);
+    setSelectedEdgeId(null);
+    setTimeout(() => {
+      if (nodes.length === 0) { alert("Nothing to export yet — add a shape first."); return; }
+
+      // Export only the actual content's bounding box (not the full, effectively-
+      // infinite canvas). Exporting the whole 40000x40000 world would ask the
+      // browser to rasterize a canvas far past its size limits, which is what
+      // produced the corrupted/blank "bad file" PNGs before.
+      const PAD = 60;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      nodes.forEach((n) => {
+        minX = Math.min(minX, n.x);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x + n.w);
+        maxY = Math.max(maxY, n.y + n.h);
+      });
+      minX -= PAD; minY -= PAD; maxX += PAD; maxY += PAD;
+      const boxW = Math.max(1, maxX - minX);
+      const boxH = Math.max(1, maxY - minY);
+
+      // Keep the final raster under common browser canvas limits (~16k px per
+      // side, ~268M px total) while still exporting at a crisp resolution.
+      const MAX_DIM = 8000;
+      const scale = Math.min(2, MAX_DIM / Math.max(boxW, boxH));
+
+      const svgEl = document.getElementById("flow-svg");
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("viewBox", `${minX} ${minY} ${boxW} ${boxH}`);
+      clone.setAttribute("width", boxW);
+      clone.setAttribute("height", boxH);
+      clone.style.background = "#FFFFFF";
+      const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bg.setAttribute("x", minX); bg.setAttribute("y", minY);
+      bg.setAttribute("width", boxW); bg.setAttribute("height", boxH);
+      bg.setAttribute("fill", "#FFFFFF");
+      clone.insertBefore(bg, clone.firstChild);
+      const xml = new XMLSerializer().serializeToString(clone);
+      const svg64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(xml)));
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(boxW * scale);
+        canvas.height = Math.round(boxH * scale);
+        const ctx = canvas.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, boxW, boxH);
+        ctx.drawImage(img, 0, 0, boxW, boxH);
+        canvas.toBlob((blob) => {
+          if (!blob) { alert("PNG export failed — please try again."); return; }
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.download = "epic-config-flow.png";
+          a.href = url;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }, "image/png");
+      };
+      img.onerror = () => alert("PNG export failed while rendering the image — please try again.");
+      img.src = svg64;
+    }, 50);
+  };
+
+  const resetView = () => { setPan(INITIAL_VIEW.pan); setZoom(INITIAL_VIEW.zoom); };
+
+  const modalNode = nodes.find((n) => n.id === modalNodeId);
+  const selEdge = edges.find((e2) => e2.id === selectedEdgeId);
+  const selNode = nodes.find((n) => n.id === selectedId);
+
+  const stageNodes = nodes.filter((n) => n.type === "process");
+  const kpi = { "Not started": 0, "In Progress": 0, "Blocked": 0, "In Review": 0, "Done": 0 };
+  stageNodes.forEach((n) => { kpi[n.status] = (kpi[n.status] || 0) + 1; });
+  const kpiTotal = stageNodes.length || 1;
+  const completionPct = Math.round(((kpi["Done"] || 0) / kpiTotal) * 100);
+
+  return (
+    <div className="app-root">
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-title">E2E Flow in JIra Explained</div>
+        </div>
+        <div className="toolbar">
+          <div className="toolbar-row">
+            <div className="tool-group">
+              <span className="tool-label">Shapes</span>
+              <button onClick={() => addShape("process")} title="Add process step">▢ Process</button>
+              <button onClick={() => addShape("decision")} title="Add decision">◇ Decision</button>
+              <button onClick={() => addShape("terminal")} title="Add start/end">⬡ Start/End</button>
+              <button onClick={() => addShape("note")} title="Add note">✐ Note</button>
+              <button onClick={() => addShape("io")} title="Add data / input-output (parallelogram)">▱ Data</button>
+              <button onClick={() => addShape("document")} title="Add document">📄 Document</button>
+              <button onClick={() => addShape("predefined")} title="Add predefined process / subroutine">⧉ Sub-process</button>
+              <button onClick={() => addShape("database")} title="Add database / data store">🛢 Database</button>
+              <button onClick={() => addShape("connector")} title="Add on-page connector">◯ Connector</button>
+            </div>
+            <div className="tool-group">
+              <button
+                className={connectMode ? "active" : ""}
+                onClick={() => { setConnectMode((v) => !v); setConnectSource(null); }}
+                title="Connect two steps with an arrow"
+              >
+                ↗ {connectMode ? "Connecting… (Esc to stop)" : "Connect"}
+              </button>
+              <button onClick={deleteSelected} disabled={!selectedId && !selectedEdgeId} title="Delete selected">🗑 Delete</button>
+            </div>
+          </div>
+
+          <div className="toolbar-row">
+            <div className="tool-group">
+              <span className="tool-label">Roles</span>
+              {PERSONAS.map((p) => (
+                <button
+                  key={p}
+                  className={`chip-btn ${activeRoles.includes(p) ? "active" : ""}`}
+                  onClick={() => toggleRole(p)}
+                  title={`Highlight ${p}`}
+                >{p}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="toolbar-row">
+            <div className="tool-group">
+              <button onClick={() => setZoom((z) => Math.max(0.1, +(z - 0.1).toFixed(2)))}>−</button>
+              <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)))}>+</button>
+              <button onClick={resetView}>Reset view</button>
+            </div>
+            <div className="tool-group">
+              <button className={showMiniMap ? "active" : ""} onClick={() => setShowMiniMap((v) => !v)} title="Toggle mini-map">🗺 Map</button>
+              <button className={showKPI ? "active" : ""} onClick={() => setShowKPI((v) => !v)} title="Toggle KPI dashboard">📊 KPI</button>
+            </div>
+            <div className="tool-group">
+              {!demoPlaying && demoIndex < 0 && <button onClick={startDemo} title="Animate the whole epic lifecycle">▶ Demo Mode</button>}
+              {demoPlaying && <button className="active" onClick={() => setDemoPlaying(false)} title="Pause">⏸ Pause</button>}
+              {!demoPlaying && demoIndex >= 0 && <button onClick={() => setDemoPlaying(true)} title="Resume">▶ Resume</button>}
+              {demoIndex >= 0 && <button onClick={stopDemo} title="Stop demo">■ Stop</button>}
+              {demoIndex >= 0 && (
+                <span className="zoom-readout" style={{ minWidth: 130 }}>
+                  {`Step ${demoIndex + 1}/${DEMO_SEQUENCE.length}`}
+                </span>
+              )}
+            </div>
+            <div className="tool-group">
+              <button onClick={exportPNG}>⬇ PNG</button>
+              <button onClick={exportJSON}>⬇ Save JSON</button>
+              <button onClick={() => fileInputRef.current.click()}>⬆ Load JSON</button>
+              <input ref={fileInputRef} type="file" accept="application/json" style={{ display: "none" }} onChange={importJSON} />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {showHelp && (
+        <div className="help-strip">
+          Double-click a step to rename it &middot; click once then use the panel for story details, color, duplicate, connect, or delete &middot; drag empty space to pan &middot; drag a shape to move it (connectors stay attached) &middot; hover a shape and drag from an anchor dot onto another shape to draw a new connector &middot; click the mini-map to jump around.
+          <button className="dismiss" onClick={() => setShowHelp(false)}>✕</button>
+        </div>
+      )}
+
+      <div className="stage">
+        <div
+          className="viewport"
+          ref={viewportRef}
+          onMouseDown={onBackgroundMouseDown}
+        >
+          <div className="inner" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, width: CANVAS_W, height: CANVAS_H }}>
+            <svg id="flow-svg" width={CANVAS_W} height={CANVAS_H} viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}>
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M1,1 L9,5 L1,9" fill="none" stroke="#6B7280" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </marker>
+              </defs>
+              {edges.map((ed) => {
+                const from = nodes.find((n) => n.id === ed.from);
+                const to = nodes.find((n) => n.id === ed.to);
+                if (!from || !to) return null;
+                const pts = ed.waypoints && ed.waypoints.length ? ed.waypoints : autoRoute(from, to);
+                const d = pathFromPoints(pts);
+                const mid = midOfPoints(pts);
+                const isSel = selectedEdgeId === ed.id;
+                return (
+                  <g key={ed.id}>
+                    <path d={d} fill="none" stroke="transparent" strokeWidth="14"
+                      onClick={(e) => { e.stopPropagation(); setSelectedEdgeId(ed.id); setSelectedId(null); }}
+                      style={{ cursor: "pointer" }} />
+                    <path d={d} fill="none" stroke={isSel ? "#1868DB" : "#8791A0"} strokeWidth={isSel ? 2.6 : 1.8} markerEnd="url(#arrow)" style={{ pointerEvents: "none" }} />
+                    {ed.label && (
+                      <g style={{ pointerEvents: "none" }}>
+                        <rect x={mid[0] - ed.label.length * 3.6 - 4} y={mid[1] - 10} width={ed.label.length * 7.2 + 8} height="16" fill="#FFFFFF" opacity="0.92" rx="3" />
+                        <text x={mid[0]} y={mid[1] - 1} textAnchor="middle" fontSize="11" fill="#4B5563" fontFamily="Arial, sans-serif" fontStyle="italic">{ed.label}</text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+              {nodes.map((n) => (
+                <NodeView
+                  key={n.id}
+                  node={n}
+                  selected={selectedId === n.id}
+                  connectSource={connectSource}
+                  dimmed={isDimmed(n)}
+                  spotlight={isSpotlight(n)}
+                  demoActive={demoIndex >= 0}
+                  dropTarget={!!connectDrag && connectDrag.hoverTargetId === n.id}
+                  onMouseDown={(e) => onNodeMouseDown(e, n)}
+                  onClick={(e) => onNodeClick(e, n)}
+                  onDoubleClick={(e) => onNodeDouble(e, n)}
+                  onAnchorMouseDown={onAnchorMouseDown}
+                />
+              ))}
+              {connectDrag && (() => {
+                const fromNode = nodes.find((n) => n.id === connectDrag.fromId);
+                if (!fromNode) return null;
+                const [sx, sy] = anchorPoint(fromNode, connectDrag.fromSide);
+                return (
+                  <path
+                    d={`M${sx},${sy} L${connectDrag.x},${connectDrag.y}`}
+                    fill="none" stroke="#1868DB" strokeWidth="2.2" strokeDasharray="7,5"
+                    style={{ pointerEvents: "none" }}
+                  />
+                );
+              })()}
+            </svg>
+
+            {showMiniMap && (
+              <MiniMap nodes={nodes} pan={pan} zoom={zoom} viewportEl={viewportRef.current} onNavigate={onMiniMapNavigate} />
+            )}
+
+            {editingId && nodes.find((n) => n.id === editingId) && (() => {
+              const n = nodes.find((n2) => n2.id === editingId);
+              return (
+                <textarea
+                  autoFocus
+                  className="edit-overlay"
+                  style={{ left: n.x, top: n.y, width: n.w, height: n.h }}
+                  value={draftText}
+                  onChange={(e) => setDraftText(e.target.value)}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onBlur={commitEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); }
+                  }}
+                />
+              );
+            })()}
+          </div>
+        </div>
+
+        <aside className="side-panel">
+          {selNode ? (
+            <div className="panel-card">
+              <div className="panel-title">Selected step</div>
+              <div className="panel-step-text">{selNode.text}</div>
+              <div className="panel-row">
+                <span className={`status-chip`} style={{ background: STATUS_COLOR[selNode.status] || "#9AA1AC" }}>{selNode.status}</span>
+              </div>
+              <button className="panel-btn" onClick={() => { setEditingId(selNode.id); setDraftText(selNode.text); }}>✏ Edit</button>
+              <button className="panel-btn" onClick={() => setModalNodeId(selNode.id)}>👤 Story details</button>
+              <button className="panel-btn" onClick={duplicateSelected}>⧉ Duplicate step</button>
+              <button className="panel-btn" onClick={() => { setConnectMode(true); setConnectSource(selNode.id); }}>↗ Connect from here</button>
+              <button className="panel-btn danger" onClick={deleteSelected}>🗑 Delete step</button>
+
+              <div className="panel-row" style={{ marginTop: 10 }}>
+                <span className="panel-label">Color</span>
+                <div className="palette-row">
+                  <button
+                    className={`palette-swatch reset ${!selNode.color ? "selected" : ""}`}
+                    title="Use default color for this shape type"
+                    onClick={() => setNodes((nds) => nds.map((n) => (n.id === selNode.id ? { ...n, color: null } : n)))}
+                  >↺</button>
+                  {NODE_PALETTE.map((c) => (
+                    <button
+                      key={c.name}
+                      className={`palette-swatch ${selNode.color && selNode.color.fill === c.fill ? "selected" : ""}`}
+                      style={{ background: c.fill, borderColor: c.stroke }}
+                      title={c.name}
+                      onClick={() => setNodes((nds) => nds.map((n) => (n.id === selNode.id ? { ...n, color: { fill: c.fill, stroke: c.stroke, text: c.text } } : n)))}
+                    />
+                  ))}
+                </div>
+              </div>
+              {(selNode.storyId || selNode.sprint || selNode.storyPoints) && (
+                <div className="panel-row" style={{ marginTop: 10 }}>
+                  {selNode.storyId && <span className="mini-chip">{selNode.storyId}</span>}
+                  {selNode.sprint && <span className="mini-chip">{selNode.sprint}</span>}
+                  {selNode.storyPoints && <span className="mini-chip">{selNode.storyPoints} pts</span>}
+                </div>
+              )}
+              {(selNode.person || selNode.role || selNode.notes || selNode.acceptanceCriteria || selNode.dependencies || (selNode.comments && selNode.comments.length)) && (
+                <div className="panel-meta">
+                  {selNode.person && <div><b>Owner:</b> {selNode.person}</div>}
+                  {selNode.role && <div><b>Role:</b> {selNode.role}</div>}
+                  {selNode.notes && <div><b>Notes:</b> {selNode.notes}</div>}
+                  {selNode.acceptanceCriteria && <div><b>AC:</b> {selNode.acceptanceCriteria}</div>}
+                  {selNode.dependencies && <div><b>Dependencies:</b> {selNode.dependencies}</div>}
+                  {selNode.comments && selNode.comments.length > 0 && <div><b>Comments:</b> {selNode.comments.length}</div>}
+                </div>
+              )}
+            </div>
+          ) : selEdge ? (
+            <div className="panel-card">
+              <div className="panel-title">Selected connector</div>
+              <label className="panel-label">Label</label>
+              <input
+                className="panel-input"
+                value={selEdge.label}
+                onChange={(e) => setEdges((eds) => eds.map((ed2) => (ed2.id === selEdge.id ? { ...ed2, label: e.target.value } : ed2)))}
+                placeholder="e.g. Yes / No"
+              />
+              <button className="panel-btn danger" onClick={deleteSelected}>🗑 Delete connector</button>
+            </div>
+          ) : (
+            <div className="panel-card muted">
+              <div className="panel-title">Nothing selected</div>
+              <p>Click any shape to rename it, assign an owner, or connect it to the next step. Click a connector line to label or delete it.</p>
+            </div>
+          )}
+
+          {showKPI && (
+            <div className="panel-card">
+              <div className="panel-title">KPI Dashboard</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "#1E7A47", marginBottom: 2 }}>{completionPct}%</div>
+              <div style={{ fontSize: 11.5, color: "var(--muted)", marginBottom: 10 }}>Epic completion ({stageNodes.length} stages)</div>
+              {["Done", "In Review", "In Progress", "Blocked", "Not started"].map((st) => (
+                <div key={st} style={{ marginBottom: 7 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#3C4451", marginBottom: 2 }}>
+                    <span>{st}</span><span>{kpi[st] || 0}</span>
+                  </div>
+                  <div className="kpi-bar-track">
+                    <div className="kpi-bar-fill" style={{ width: `${((kpi[st] || 0) / kpiTotal) * 100}%`, background: STATUS_COLOR[st] }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showLegend && (
+            <div className="panel-card">
+              <div className="panel-title">Legend</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.terminal.fill, borderColor: TYPE_STYLE.terminal.stroke }} /> Start / End / Gate</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.process.fill, borderColor: TYPE_STYLE.process.stroke }} /> Process step</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.decision.fill, borderColor: TYPE_STYLE.decision.stroke, borderRadius: 0, transform: "rotate(45deg) scale(0.7)" }} /> Decision</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.note.fill, borderColor: TYPE_STYLE.note.stroke, borderStyle: "dashed" }} /> Note / heading</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.highlight.fill, borderColor: TYPE_STYLE.highlight.stroke }} /> Key milestone</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.io.fill, borderColor: TYPE_STYLE.io.stroke, transform: "skewX(-12deg) scale(0.8)" }} /> Data (input/output)</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.document.fill, borderColor: TYPE_STYLE.document.stroke, borderRadius: "4px 4px 8px 8px" }} /> Document</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.predefined.fill, borderColor: TYPE_STYLE.predefined.stroke }} /> Predefined sub-process</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.database.fill, borderColor: TYPE_STYLE.database.stroke, borderRadius: "50% / 20%" }} /> Database</div>
+              <div className="legend-row"><span className="swatch" style={{ background: TYPE_STYLE.connector.fill, borderColor: TYPE_STYLE.connector.stroke, borderRadius: "50%" }} /> On-page connector</div>
+              <div className="legend-row"><span className="dot" style={{ background: STATUS_COLOR["In Progress"] }} /> Status dot on shape corner</div>
+              <div className="legend-row">◦◦◦◦ Hover a shape, then drag from an anchor dot onto another shape to connect them</div>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      <datalist id="roleOptions">
+        {PERSONAS.map((p) => <option key={p} value={p} />)}
+      </datalist>
+
+      {modalNode && (
+        <div className="modal-backdrop" onClick={() => setModalNodeId(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-title">Story details</div>
+            <div className="modal-step">{modalNode.text}</div>
+
+            <div className="modal-grid-2">
+              <div>
+                <label>Story ID</label>
+                <input
+                  value={modalNode.storyId}
+                  onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, storyId: e.target.value } : n)))}
+                  placeholder="e.g. CFG-101"
+                />
+              </div>
+              <div>
+                <label>Sprint</label>
+                <input
+                  value={modalNode.sprint}
+                  onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, sprint: e.target.value } : n)))}
+                  placeholder="e.g. Sprint 24.2"
+                />
+              </div>
+            </div>
+
+            <label>Owner</label>
+            <input
+              value={modalNode.person}
+              onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, person: e.target.value } : n)))}
+              placeholder="e.g. Priya Sharma"
+            />
+
+            <div className="modal-grid-2">
+              <div>
+                <label>Role / Team</label>
+                <input
+                  list="roleOptions"
+                  value={modalNode.role}
+                  onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, role: e.target.value } : n)))}
+                  placeholder="e.g. Architect"
+                />
+              </div>
+              <div>
+                <label>Story Points</label>
+                <input
+                  value={modalNode.storyPoints}
+                  onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, storyPoints: e.target.value } : n)))}
+                  placeholder="e.g. 3"
+                />
+              </div>
+            </div>
+
+            <label>Status</label>
+            <select
+              value={modalNode.status}
+              onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, status: e.target.value } : n)))}
+            >
+              {Object.keys(STATUS_COLOR).map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            <label>Acceptance Criteria</label>
+            <textarea
+              rows={2}
+              value={modalNode.acceptanceCriteria}
+              onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, acceptanceCriteria: e.target.value } : n)))}
+              placeholder="What must be true for this stage to be considered done?"
+            />
+
+            <label>Dependencies</label>
+            <input
+              value={modalNode.dependencies}
+              onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, dependencies: e.target.value } : n)))}
+              placeholder="e.g. CR raised, Product Backlog groomed"
+            />
+
+            <label>RACI</label>
+            <div className="modal-grid-4">
+              {["r", "a", "c", "i"].map((k) => (
+                <div key={k}>
+                  <span className="raci-label">{k.toUpperCase()}</span>
+                  <input
+                    className="raci-input"
+                    value={modalNode.raci[k]}
+                    onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, raci: { ...n.raci, [k]: e.target.value } } : n)))}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <label>Notes / responsibilities</label>
+            <textarea
+              rows={3}
+              value={modalNode.notes}
+              onChange={(e) => setNodes((nds) => nds.map((n) => (n.id === modalNode.id ? { ...n, notes: e.target.value } : n)))}
+              placeholder="What does this person/team need to do at this stage?"
+            />
+
+            <label>Comments</label>
+            <div className="comment-list">
+              {(modalNode.comments || []).length === 0 && <div className="panel-card muted" style={{ padding: 8, margin: 0 }}>No comments yet.</div>}
+              {(modalNode.comments || []).map((c, i) => (
+                <div key={i} className="comment-item">
+                  <div className="comment-meta"><b>{c.author}</b> · {c.time}</div>
+                  <div>{c.text}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <input
+                style={{ flex: 1 }}
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                placeholder="Add a comment…"
+                onKeyDown={(e) => { if (e.key === "Enter") addComment(); }}
+              />
+              <button className="panel-btn" style={{ width: "auto" }} onClick={addComment}>Add</button>
+            </div>
+
+            <div className="modal-actions">
+              <button className="panel-btn" onClick={() => setModalNodeId(null)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
