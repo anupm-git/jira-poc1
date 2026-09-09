@@ -1,8 +1,0 @@
-JIRA_BASE_URL="https://your-company.atlassian.net"
-JIRA_EMAIL="jira-service-account@company.com"
-JIRA_API_TOKEN="replace-me"
-JIRA_JQL="project = YOURPROJECT ORDER BY updated DESC"
-RESEND_API_KEY="re_xxxxxxxxx"
-REPORT_ADMIN_KEY="generate-a-long-random-secret"
-REPORT_FROM="Jira Governance <jira@your-verified-domain.com>"
-REPORT_RECIPIENTS="leadership@company.com,po@company.com"
